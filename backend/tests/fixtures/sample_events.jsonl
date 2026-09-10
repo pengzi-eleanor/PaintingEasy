@@ -1,0 +1,13 @@
+{"event_name":"search_session_start","session_id":"s_text_1","timestamp":"2026-09-03T01:00:00Z","payload":{"entry":"text","query_length":8,"query_language":"zh"}}
+{"event_name":"keyword_suggestions_generated","session_id":"s_text_1","timestamp":"2026-09-03T01:00:01Z","payload":{"entry":"text","suggestion_count":4,"provider":"mock","degraded":false}}
+{"event_name":"keyword_selection_changed","session_id":"s_text_1","timestamp":"2026-09-03T01:00:02Z","payload":{"count":2}}
+{"event_name":"keyword_added_by_user","session_id":"s_text_1","timestamp":"2026-09-03T01:00:03Z","payload":{"count":1}}
+{"event_name":"platform_links_generated","session_id":"s_text_1","timestamp":"2026-09-03T01:00:04Z","payload":{"count":3}}
+{"event_name":"platform_link_clicked","session_id":"s_text_1","timestamp":"2026-09-03T01:00:05Z","payload":{"platform":"unsplash","elapsed_ms":4000}}
+{"event_name":"search_feedback_submitted","session_id":"s_text_1","timestamp":"2026-09-03T01:00:06Z","payload":{"helpful":1}}
+{"event_name":"search_session_start","session_id":"s_text_2","timestamp":"2026-09-03T02:00:00Z","payload":{"entry":"text","query_length":12,"query_language":"en"}}
+{"event_name":"keyword_suggestions_generated","session_id":"s_text_2","timestamp":"2026-09-03T02:00:01Z","payload":{"suggestion_count":2,"provider":"mock","degraded":true}}
+{"event_name":"keyword_removed_by_user","session_id":"s_text_2","timestamp":"2026-09-03T02:00:02Z","payload":{"count":1}}
+{"event_name":"search_session_start","session_id":"s_image_1","timestamp":"2026-09-03T03:00:00Z","payload":{"entry":"image"}}
+{"event_name":"image_uploaded","session_id":"s_image_1","timestamp":"2026-09-03T03:00:01Z","payload":{"image_type":"image/png","size_bytes":1024,"image_id":"img_1"}}
+{"event_name":"image_analysis_completed","session_id":"s_image_1","timestamp":"2026-09-03T03:00:02Z","payload":{"provider":"mock","degraded":false,"processing_ms":120}}

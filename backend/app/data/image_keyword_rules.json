@@ -1,0 +1,17 @@
+{
+  "objects": [
+    {"keyword": "image reference", "category": "general", "group": "core", "confidence": 0.6, "reason": "Mock 语义识别：图片可作为素材参考"},
+    {"keyword": "visual inspiration", "category": "general", "group": "expanded", "confidence": 0.55, "reason": "Mock 语义识别：用于寻找视觉灵感"}
+  ],
+  "platforms": {
+    "unsplash": {"keyword": "editorial photography", "category": "style", "group": "platform_specific", "confidence": 0.5, "reason": "Unsplash 平台偏向摄影素材"},
+    "freepik": {"keyword": "vector illustration", "category": "style", "group": "platform_specific", "confidence": 0.5, "reason": "Freepik 平台偏向插画与设计素材"}
+  },
+  "personas": {
+    "graphic_designer": {"keyword": "design composition", "category": "composition", "group": "platform_specific", "confidence": 0.52, "reason": "平面设计师适配：关注构图与版式"},
+    "illustrator": {"keyword": "illustration concept", "category": "style", "group": "platform_specific", "confidence": 0.52, "reason": "插画师适配：关注插画概念与风格"},
+    "photographer": {"keyword": "professional photography", "category": "style", "group": "platform_specific", "confidence": 0.52, "reason": "摄影师适配：关注摄影表现"},
+    "ecommerce_worker": {"keyword": "product showcase", "category": "scene", "group": "platform_specific", "confidence": 0.52, "reason": "电商工作者适配：关注商品展示"},
+    "ui_designer": {"keyword": "interface visual", "category": "style", "group": "platform_specific", "confidence": 0.52, "reason": "UI 设计师适配：关注界面视觉"}
+  }
+}

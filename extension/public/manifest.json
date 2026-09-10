@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "CreatingEasy 素材搜索助手",
+  "version": "0.1.0",
+  "description": "优化素材搜索词，并快速跳转到常用素材平台。",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "CreatingEasy"
+  },
+  "permissions": ["storage"]
+}

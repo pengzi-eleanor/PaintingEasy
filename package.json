@@ -1,0 +1,13 @@
+{
+  "name": "creating-easy",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "extension"
+  ],
+  "scripts": {
+    "dev:extension": "npm --workspace extension run dev",
+    "build:extension": "npm --workspace extension run build",
+    "test:extension": "npm --workspace extension run test"
+  }
+}

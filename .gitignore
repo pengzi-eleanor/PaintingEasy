@@ -1,0 +1,25 @@
+node_modules/
+# 本地需求文档，不上传
+paintingEasy需求文档.docx
+
+# 本地 Python 虚拟环境及其常见命名
+.venv/
+venv/
+env/
+backend/venv/
+backend/env/
+
+# 依赖安装产物；仅提交 pyproject.toml、package.json、package-lock.json 等版本清单
+site-packages/
+*.egg-info/
+extension/dist/
+extension/coverage/
+backend/.venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/**/__pycache__/
+*.py[cod]
+.env
+.DS_Store
+backend/logs/*.jsonl
+backend/uploads/

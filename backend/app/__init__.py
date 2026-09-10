@@ -1,0 +1,1 @@
+"""CreatingEasy backend application."""
