@@ -1,6 +1,6 @@
 # CreatingEasy
 
-CreatingEasy 是面向创作者的素材搜索辅助 Chrome 插件 monorepo。当前版本提供 Vue 3 插件界面和 FastAPI 服务；基础优化使用本地腾讯轻量中文词向量并可选连接 Wikidata，智能优化仍使用结构化 Mock LLM。
+CreatingEasy 是面向创作者的素材搜索辅助 Chrome 插件 monorepo。当前版本提供 Vue 3 插件界面和 FastAPI 服务；基础优化使用本地腾讯轻量中文词向量，智能优化仍使用结构化 Mock LLM。
 
 ## 目录
 
@@ -43,7 +43,7 @@ python -m pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-服务默认位于 `http://127.0.0.1:8000`，健康检查为 `GET /health`，统一搜索辅助接口为 `POST /api/v1/search/assist`，交互式接口文档位于 `/docs`。腾讯轻量词向量应放在 `backend/data/models/light_Tencent_AILab_ChineseEmbedding.bin`，仅由后端本地读取；ConceptNet 默认关闭，Wikidata 可由部署环境或用户设置关闭。当前目标环境的真实连接风险和复测方式见 [部署说明](docs/deployment.md)。
+服务默认位于 `http://127.0.0.1:8000`，健康检查为 `GET /health`，统一搜索辅助接口为 `POST /api/v1/search/assist`，交互式接口文档位于 `/docs`。腾讯轻量词向量应放在 `backend/data/models/light_Tencent_AILab_ChineseEmbedding.bin`，仅由后端本地读取；翻译、大模型和图片识别通过可替换 Provider 接入外部 API。部署配置见 [部署说明](docs/deployment.md)。
 
 ## 验证
 

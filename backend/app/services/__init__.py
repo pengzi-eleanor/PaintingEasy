@@ -1,14 +1,11 @@
 from app.services.keyword_optimizer import (
     KeywordOptimizeService,
-    KeywordSuggestionProvider,
-    RuleBasedKeywordSuggestionProvider,
 )
 from app.services.rag import ContextBuilder, KeywordRetriever
 
 __all__ = [
+    "AnalyticsService",
     "KeywordOptimizeService",
-    "KeywordSuggestionProvider",
-    "RuleBasedKeywordSuggestionProvider",
     "KeywordRetriever",
     "ContextBuilder",
 ]

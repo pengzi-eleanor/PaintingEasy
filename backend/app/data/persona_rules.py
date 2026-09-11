@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.data.keyword_knowledge import KeywordCategory, LocalizedTerms
+from app.models.keyword import KeywordCategory, LocalizedTerms
 
 PersonaId = Literal[
     "graphic_designer", "illustrator", "photographer", "ecommerce_worker", "ui_designer"

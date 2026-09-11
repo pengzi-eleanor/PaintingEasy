@@ -15,10 +15,9 @@ from app.services.rag import KeywordRetriever, PersonaRuleEngine
     ],
 )
 def test_five_personas_apply_conditional_modifiers(persona, query, expected_modifier):
-    result = KeywordRetriever(use_local_knowledge=True).retrieve(query, persona)
+    result = KeywordRetriever().retrieve(query, persona)
     keywords = result["keywords"]
     assert expected_modifier in [item["text"] for item in keywords]
-    assert [item["text"] for item in keywords if item["category"] == "subject"] == ["cat"]
     assert all(item["reason"] for item in keywords)
     assert result["persona_rules"][0]["source_id"] == persona
 
@@ -40,17 +39,17 @@ def test_profiles_are_complete_and_have_stable_ids():
 
 
 def test_no_persona_adds_no_persona_specific_terms():
-    result = KeywordRetriever(use_local_knowledge=True).retrieve("猫品牌营销海报")
+    result = KeywordRetriever().retrieve("猫品牌营销海报")
     assert result["persona_rules"] == []
     assert all(item["source_type"] != "persona_modifier" for item in result["keywords"])
 
 
 def test_ui_modifiers_require_ui_intent():
-    without_ui = KeywordRetriever(use_local_knowledge=True).retrieve(
+    without_ui = KeywordRetriever().retrieve(
         "猫手机设备组件", "ui_designer"
     )
     assert all(item["source_type"] != "persona_modifier" for item in without_ui["keywords"])
-    with_ui = KeywordRetriever(use_local_knowledge=True).retrieve(
+    with_ui = KeywordRetriever().retrieve(
         "猫 UI 手机组件", "ui_designer"
     )
     assert {"user interface", "device mockup", "design system"} <= {
@@ -82,19 +81,25 @@ def test_blocked_expansions_do_not_remove_direct_subjects():
 
 
 def test_persona_ranking_is_stable_and_explains_weights():
-    first = KeywordRetriever(use_local_knowledge=True).retrieve(
-        "猫城市海报", "graphic_designer"
-    )["keywords"]
-    second = KeywordRetriever(use_local_knowledge=True).retrieve(
-        "猫城市海报", "graphic_designer"
-    )["keywords"]
+    candidates = [
+        {
+            "text": "城市", "category": "scene", "source_type": "keyword",
+            "source_id": "city", "score": 0.8, "reason": "直接匹配", "group": "core",
+        },
+        {
+            "text": "海报", "category": "composition", "source_type": "keyword",
+            "source_id": "poster", "score": 0.8, "reason": "直接匹配", "group": "core",
+        },
+    ]
+    first, _ = PersonaRuleEngine().apply("猫城市海报", candidates, "graphic_designer")
+    second, _ = PersonaRuleEngine().apply("猫城市海报", candidates, "graphic_designer")
     assert first == second
     assert first[0]["category"] == "composition"
     weighted = [item for item in first if item["source_type"] != "persona_modifier"]
     assert all("分类权重" in item["reason"] for item in weighted)
 
 
-def test_default_online_retriever_keeps_persona_rules_without_local_subject_lookup():
+def test_retriever_keeps_persona_rules_without_handwritten_subject_lookup():
     result = KeywordRetriever().retrieve("猫品牌营销海报", "graphic_designer")
     assert all(item["text"] != "cat" for item in result["keywords"])
     assert "copy space" in [item["text"] for item in result["keywords"]]

@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 
 from app.main import app
-from app.models.schemas import KeywordSuggestion, SearchAssistRequest, SearchAssistResponse
+from app.models.schemas import SearchAssistRequest, SearchAssistResponse
 from app.services.platforms import PLATFORMS
 
 
@@ -68,12 +68,9 @@ def test_search_assist_returns_keywords_and_platform_links() -> None:
     assert body["optimization_mode"] == "basic"
     assert body["generation_status"]["ai_used"] is False
     assert {item["source"] for item in body["knowledge_sources"]} == {
-        "wikidata",
+        "tencent_word2vec",
     }
-    assert {item["status"] for item in body["knowledge_sources"]} == {
-        "original_fallback"
-    }
-    assert body["retrieval"]["strategy"] == "fallback"
+    assert body["retrieval"]["strategy"] in {"hybrid", "fallback"}
     assert len(body["platform_recommendations"]) <= 5
 
 
@@ -103,19 +100,15 @@ def test_search_request_without_mode_keeps_basic_compatibility() -> None:
     assert serialized["platforms"]
 
 
-def test_user_can_disable_network_expansion_per_request() -> None:
+def test_legacy_network_flag_does_not_disable_local_tencent_provider() -> None:
     body = request(
         "POST",
         "/api/v1/search/assist",
         json={"query": "非敏感测试词", "network_expansion": False},
     ).json()
-    assert {item["status"] for item in body["knowledge_sources"]} == {
-        "original_fallback"
+    assert {item["source"] for item in body["knowledge_sources"]} == {
+        "tencent_word2vec"
     }
-    assert all(
-        "关闭" in item["message"] or "未启用" in item["message"]
-        for item in body["knowledge_sources"]
-    )
 
 
 def test_smart_mode_uses_structured_offline_mock() -> None:
@@ -145,7 +138,7 @@ def test_search_assist_rejects_blank_query() -> None:
 
 def test_search_assist_chinese_keeps_original_without_manual_dictionary() -> None:
     body = request("POST", "/api/v1/search/assist", json={"query": "复古油画风猫"}).json()
-    assert [item["keyword"] for item in body["suggestions"]] == ["复古油画风猫"]
+    assert body["suggestions"][0]["keyword"] == "复古油画风猫"
     assert body["suggestions"][0]["source"] == "original"
 
 
@@ -165,13 +158,19 @@ def test_search_assist_mixed_input_keeps_original_intent() -> None:
 
 
 def test_search_assist_provider_failure_degrades() -> None:
-    from app.services import KeywordOptimizeService
+    from app.services import KeywordOptimizeService, KeywordRetriever
 
     class BrokenProvider:
-        def suggest(self, query: str) -> list[KeywordSuggestion]:
+        name = "tencent_word2vec"
+        enabled = True
+        version = "test"
+
+        def expand(self, request):
             raise RuntimeError("offline")
 
-    body = KeywordOptimizeService(BrokenProvider()).optimize("plain query")
+    body = KeywordOptimizeService(
+        retriever=KeywordRetriever(expansion_provider=BrokenProvider())
+    ).optimize("plain query")
     assert body.suggestions[0].source == "original"
     assert body.degraded is True
 

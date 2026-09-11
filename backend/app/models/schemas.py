@@ -88,17 +88,9 @@ class KeywordCandidate(BaseModel):
 
 
 KnowledgeLanguage = Literal["zh", "en", "mixed", "auto"]
-KnowledgeSource = Literal[
-    "local_rule", "wikidata", "conceptnet", "tencent_word2vec", "cache", "mock"
-]
+KnowledgeSource = Literal["tencent_word2vec", "mock"]
 KnowledgeRelation = Literal[
-    "exact",
-    "alias",
     "translation",
-    "HasType",
-    "IsA",
-    "UsedFor",
-    "AtLocation",
     "RelatedTo",
 ]
 
@@ -151,7 +143,7 @@ class KnowledgeExpansionCandidate(BaseModel):
 
 
 class KnowledgeExpansionResult(BaseModel):
-    provider: Literal["local_rule", "wikidata", "conceptnet", "tencent_word2vec", "mock"]
+    provider: Literal["tencent_word2vec", "mock"]
     status: Literal["success", "empty", "failed", "degraded"]
     candidates: list[KnowledgeExpansionCandidate] = Field(default_factory=list)
     version: str
@@ -272,7 +264,7 @@ class RetrievalMeta(BaseModel):
 
 
 class KnowledgeSourceStatus(BaseModel):
-    source: Literal["local_rules", "wikidata", "conceptnet", "tencent_word2vec"]
+    source: Literal["tencent_word2vec"]
     status: Literal["fresh_cache", "live", "stale_cache", "original_fallback"]
     message: str = ""
 

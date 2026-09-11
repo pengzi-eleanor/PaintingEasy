@@ -1,29 +1,18 @@
-# 部署与公网知识扩展
+# 后端部署与 Provider 边界
 
-腾讯轻量中文词向量默认在后端本地运行，模型文件放在 `backend/data/models/light_Tencent_AILab_ChineseEmbedding.bin`，可通过 `TENCENT_WORD2VEC_ENABLED=false` 关闭。ConceptNet 默认关闭；Wikidata 仍是可选网络扩展，不需要 API key，部署方应设置可识别的 `KNOWLEDGE_USER_AGENT`。用户可以在插件设置中关闭 Wikidata，但这不会关闭本地腾讯词向量。
+腾讯轻量中文词向量在后端本地运行，模型文件放在
+`backend/data/models/light_Tencent_AILab_ChineseEmbedding.bin`。查询不会发送到腾讯服务。
 
-按 README 从 `backend` 目录启动时，默认缓存位于 `data/knowledge_cache.sqlite3`；生产部署应为该目录提供持久、可写存储。缓存不可用时搜索仍会继续实时请求或回退原始 query。
+相关配置：
 
-基础优化启用网络扩展时，只发送当前搜索词、语言及必要的请求限制；不发送图片、历史、AI Prompt、密钥或原始外部响应。SQLite 只保存 query 摘要、标准化候选及必要状态。日志仅记录 Provider、异常类型和重试序号，不记录完整 query、请求 URL 参数或响应正文。
+- `TENCENT_WORD2VEC_ENABLED`：是否启用本地词向量；
+- `TENCENT_WORD2VEC_MODEL_PATH`：模型文件路径；
+- `TENCENT_WORD2VEC_TOPN`、`TENCENT_WORD2VEC_MIN_SIMILARITY`：候选限制；
+- `SEARCH_CACHE_MAX_ENTRIES`、`SEARCH_CACHE_TTL_SECONDS`：当前进程内的轻量结果缓存；
+- `EXTERNAL_API_TIMEOUT_SECONDS`、`EXTERNAL_API_RETRY_COUNT`：未来外部 API 的公共默认值。
 
-## 2026-09-10 目标环境冒烟结果
+缓存仅保存在当前后端进程内，缓存键使用查询摘要；服务重启后自动清空，不承担永久知识库职责。
 
-使用固定的非敏感测试词，每个官方地址执行 5 次最小请求：
-
-| Provider | 官方地址 | 状态码 | P95 | 超时 | HTTP 429 | Retry-After |
-| --- | --- | --- | ---: | ---: | ---: | ---: |
-| Wikidata | `https://www.wikidata.org/w/api.php` | 403 × 5 | 490.9 ms | 0 | 0 | 0 |
-| ConceptNet | `https://api.conceptnet.io` | 502 × 5 | 1390.2 ms | 0 | 0 | 0 |
-
-因此，本次目标部署网络未通过真实连通性验收。完整搜索 API 对真实请求返回两个 `original_fallback`，保留规范化原始 query 和平台跳转，没有绕过网络限制，也没有使用 Mock 冒充在线成功。
-
-独立冒烟工具随后用明确标记的脱敏 fixture 验证完整 API 状态机：双 `live`、双 `fresh_cache`、`live + original_fallback` 部分成功、`stale_cache` 旧缓存回退，以及双 `original_fallback`。这些状态仅证明缓存和降级装配有效，不代表当前部署网络已连接成功。
-
-真实冒烟需人工显式运行，不属于 pytest：
-
-```powershell
-cd backend
-python scripts/smoke_external_knowledge.py
-```
-
-上线前应在实际部署网络再次运行；若仍为 403/502，应继续依赖合格旧缓存或原始 query 回退，不应配置代理绕过当地网络或服务限制。
+项目不再包含 Wikidata 或 ConceptNet。未来翻译、大模型和图片语义识别服务应分别实现
+`TranslationProvider`、`LanguageModelProvider`、`ImageAnalyzeProvider`，通过依赖注入装配。
+通用 `HttpxExternalApiClient` 提供超时、有限重试、JSON 解析和脱敏错误映射；API 密钥只能从环境变量读取。

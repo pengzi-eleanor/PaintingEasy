@@ -74,14 +74,12 @@ describe('keyword result panels', () => {
     expect(wrapper.text()).toContain('站内操作')
   })
 
-  it('explains public queries and lets the user disable network expansion', async () => {
+  it('explains that Tencent keyword expansion runs locally', () => {
     const wrapper = mount(SettingsPanel, {
-      props: { modelValue: 'unsplash', networkExpansion: true },
+      props: { modelValue: 'unsplash' },
       global,
     })
-    expect(wrapper.text()).toContain('腾讯词向量始终在本地运行')
-    const switchComponent = wrapper.findComponent({ name: 'ElSwitch' })
-    await switchComponent.vm.$emit('update:modelValue', false)
-    expect(wrapper.emitted('update:networkExpansion')?.[0]).toEqual([false])
+    expect(wrapper.text()).toContain('腾讯中文词向量在本地运行')
+    expect(wrapper.text()).not.toContain('Wikidata')
   })
 })

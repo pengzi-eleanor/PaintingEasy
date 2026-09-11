@@ -1,7 +1,6 @@
 import json
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
-from hashlib import sha256
 from pathlib import Path
 from threading import Lock
 from typing import Protocol
@@ -15,12 +14,14 @@ from app.models.schemas import (
 )
 
 
-class EmbeddingProvider(Protocol):
-    def embed(self, texts: list[str]) -> list[list[float]]: ...
-
-
 class LanguageModelProvider(Protocol):
     def generate_keywords(self, prompt: str) -> SmartOptimizationOutput: ...
+
+
+class TranslationProvider(Protocol):
+    def translate(
+        self, text: str, *, source_language: str = "auto", target_language: str = "en"
+    ) -> str: ...
 
 
 class LanguageModelError(RuntimeError):
@@ -29,6 +30,17 @@ class LanguageModelError(RuntimeError):
 
 class QuotaExceededError(LanguageModelError):
     pass
+
+
+class TranslationProviderError(RuntimeError):
+    """Sanitized provider error safe for translation fallback."""
+
+
+class UnavailableTranslationProvider:
+    def translate(
+        self, text: str, *, source_language: str = "auto", target_language: str = "en"
+    ) -> str:
+        raise TranslationProviderError("translation provider is not configured")
 
 
 class InMemoryUsageQuota:
@@ -55,14 +67,6 @@ def parse_structured_model_response(raw_response: str) -> SmartOptimizationOutpu
         return SmartOptimizationOutput.model_validate_json(raw_response)
     except ValidationError as exc:
         raise LanguageModelError("invalid structured model response") from exc
-
-
-class MockEmbeddingProvider:
-    def embed(self, texts: list[str]) -> list[list[float]]:
-        return [
-            [round(byte / 255, 6) for byte in sha256(text.encode()).digest()[:8]]
-            for text in texts
-        ]
 
 
 class MockLanguageModelProvider:

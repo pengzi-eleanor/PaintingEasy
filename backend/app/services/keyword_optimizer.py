@@ -1,6 +1,5 @@
 import re
 from hashlib import sha1
-from typing import Protocol
 
 from app.models.schemas import (
     GenerationStatus,
@@ -30,110 +29,13 @@ from app.services.platforms import (
 from app.services.rag import ContextBuilder, KeywordRetriever
 
 
-class KeywordSuggestionProvider(Protocol):
-    def suggest(self, query: str) -> list[KeywordSuggestion]: ...
-
-
-class RuleBasedKeywordSuggestionProvider:
-    """Deterministic dictionary/rule provider; deliberately makes no external calls."""
-
-    DICTIONARY = {
-        "赛博朋克": ("cyberpunk", "style"),
-        "油画": ("oil painting", "style"),
-        "黑白": ("black and white", "color"),
-        "复古": ("vintage", "style"),
-        "极简": ("minimal", "style"),
-        "猫": ("cat", "subject"),
-        "狗": ("dog", "subject"),
-        "人像": ("portrait", "subject"),
-        "女孩": ("girl", "subject"),
-        "男孩": ("boy", "subject"),
-        "风景": ("landscape", "scene"),
-        "城市": ("city", "scene"),
-        "科技": ("technology", "subject"),
-        "商务": ("business", "subject"),
-        "水彩": ("watercolor", "style"),
-        "咖啡": ("coffee", "subject"),
-    }
-    ENGLISH_CATEGORIES = {
-        "night": "scene",
-        "vintage": "style",
-        "cyberpunk": "style",
-        "cat": "subject",
-        "dog": "subject",
-        "portrait": "subject",
-        "landscape": "scene",
-        "city": "scene",
-        "quality": "quality",
-    }
-
-    def suggest(self, query: str) -> list[KeywordSuggestion]:
-        category_labels = {
-            "subject": "主体",
-            "scene": "场景",
-            "style": "风格",
-            "color": "色彩",
-            "composition": "构图",
-            "general": "通用",
-        }
-        found: list[KeywordSuggestion] = []
-        seen: set[str] = set()
-        remaining = query.lower()
-        for source, (keyword, category) in sorted(
-            self.DICTIONARY.items(), key=lambda x: -len(x[0])
-        ):
-            if source in query and keyword not in seen:
-                seen.add(keyword)
-                found.append(
-                    KeywordSuggestion(
-                        keyword=keyword,
-                        category=category,
-                        source="dictionary",
-                        confidence=0.9 if len(source) > 1 else 0.95,
-                        reason=f"将“{source}”转换为英文{category_labels.get(category, '检索')}词",
-                    )
-                )
-                remaining = remaining.replace(source.lower(), " ")
-        for phrase in re.findall(r"\b(?:oil\s+painting|black\s+and\s+white)\b", remaining):
-            keyword = re.sub(r"\s+", " ", phrase.lower()).strip()
-            if keyword not in seen:
-                seen.add(keyword)
-                found.append(
-                    KeywordSuggestion(
-                        keyword=keyword,
-                        category="style" if keyword == "oil painting" else "color",
-                        source="rule",
-                        confidence=0.88,
-                        reason="识别英文复合检索词并规范化",
-                    )
-                )
-                remaining = remaining.replace(phrase, " ")
-        for token in re.findall(r"[a-zA-Z]+(?:[-'][a-zA-Z]+)?", remaining):
-            keyword = token.lower()
-            if keyword not in seen:
-                seen.add(keyword)
-                found.append(
-                    KeywordSuggestion(
-                        keyword=keyword,
-                        category=self.ENGLISH_CATEGORIES.get(keyword, "general"),
-                        selected=True,
-                        source="rule",
-                        confidence=0.82,
-                        reason="从原始查询中提取并规范化英文关键词",
-                    )
-                )
-        return found
-
-
 class KeywordOptimizeService:
     def __init__(
         self,
-        provider: KeywordSuggestionProvider | None = None,
         retriever=None,
         llm_provider: LanguageModelProvider | None = None,
         quota: InMemoryUsageQuota | None = None,
     ):
-        self.provider = provider
         self.retriever = retriever or KeywordRetriever()
         self.llm_provider = llm_provider or MockLanguageModelProvider()
         self.quota = quota or InMemoryUsageQuota(20)
@@ -203,9 +105,9 @@ class KeywordOptimizeService:
                 messages=["请输入搜索内容后再获取关键词建议"],
                 optimization_mode=optimization_mode,
                 knowledge_sources=[
-                    KnowledgeSourceStatus(source="local_rules", status="live"),
-                    KnowledgeSourceStatus(source="wikidata", status="original_fallback"),
-                    KnowledgeSourceStatus(source="conceptnet", status="original_fallback"),
+                    KnowledgeSourceStatus(
+                        source="tencent_word2vec", status="original_fallback"
+                    ),
                 ],
                 generation_status=GenerationStatus(
                     status="not_requested" if optimization_mode == "basic" else "not_available",
@@ -234,35 +136,20 @@ class KeywordOptimizeService:
                 group="core",
             )
         ]
-        if self.provider is not None:
-            try:
-                legacy_suggestions = self.provider.suggest(original_query)
-                suggestions.extend(
-                    item
-                    for item in legacy_suggestions
-                    if item.keyword.casefold() != original_query.casefold()
-                )
-            except Exception:
-                degraded = True
-                messages.append("关键词 provider 暂不可用，已降级为基础搜索")
         retrieved = self.retriever.retrieve(
             original_query, persona, platforms, network_expansion=network_expansion
         )
-        if getattr(self.retriever, "embedding_degraded", False):
+        if getattr(self.retriever, "provider_degraded", False):
             degraded = True
-            messages.append("Embedding provider 暂不可用，已回退到规则检索")
-        if getattr(self.retriever, "external_warnings", None):
+            messages.append("腾讯词向量暂不可用，已保留原始查询")
+        if getattr(self.retriever, "warnings", None):
             degraded = True
-            messages.extend(self.retriever.external_warnings)
+            messages.extend(self.retriever.warnings)
         existing = {item.keyword.casefold() for item in suggestions}
         for item in retrieved["keywords"]:
             if item["text"].casefold() not in existing:
                 source = (
-                    "external"
-                    if item["source_type"] in {"wikidata", "conceptnet", "cache"}
-                    else "embedding"
-                    if item["source_type"] == "tencent_word2vec"
-                    else "rule"
+                    "embedding" if item["source_type"] == "tencent_word2vec" else "rule"
                 )
                 suggestions.append(
                     KeywordSuggestion(
@@ -388,12 +275,10 @@ class KeywordOptimizeService:
                     ),
                 )
             )
-        external_candidates = [
-            item for item in suggestions if item.source in {"external", "embedding"}
-        ]
-        if not external_candidates:
+        embedding_candidates = [item for item in suggestions if item.source == "embedding"]
+        if not embedding_candidates:
             degraded = True
-            messages.append("外部知识源无可用候选，已保留原始查询生成平台搜索")
+            messages.append("腾讯词向量无可用候选，已保留原始查询生成平台搜索")
         query = " ".join(item.keyword for item in suggestions)
         core = [item.keyword for item in suggestions if item.group == "core"]
         expanded = [item.keyword for item in suggestions if item.group != "core"]
@@ -449,19 +334,9 @@ class KeywordOptimizeService:
             )
         core_candidates = [item for item in candidates if item.group == "core"]
         expanded_candidates = [item for item in candidates if item.group == "expanded"]
-        retrieval_degraded = bool(getattr(self.retriever, "embedding_degraded", False)) or degraded
-        embedding_active = any(item.source == "embedding" for item in suggestions) or (
-            getattr(self.retriever, "embedding_provider", None) is not None
-        )
-        strategy = (
-            "hybrid"
-            if external_candidates
-            and embedding_active
-            and not getattr(self.retriever, "embedding_degraded", False)
-            else "external"
-            if external_candidates
-            else "fallback"
-        )
+        retrieval_degraded = bool(getattr(self.retriever, "provider_degraded", False)) or degraded
+        embedding_active = self.retriever.provider_name == "tencent_word2vec"
+        strategy = "hybrid" if embedding_candidates else "fallback"
         retrieval = {
             "strategy": strategy,
             "embedding_enabled": strategy == "hybrid",
@@ -471,9 +346,7 @@ class KeywordOptimizeService:
             ),
             "knowledge_base_version": (
                 "tencent-ailab-light-143613-d200-v1"
-                if any(item.source == "embedding" for item in suggestions)
-                else "external-knowledge-v1"
-                if external_candidates
+                if embedding_candidates
                 else "original-fallback-v1"
             ),
             "candidate_count": len(candidates),

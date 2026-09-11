@@ -126,7 +126,7 @@ export interface SearchAssistResponse {
 
 export type OptimizationMode = "basic" | "smart";
 export interface KnowledgeSourceStatus {
-  source: "local_rules" | "wikidata" | "conceptnet" | "tencent_word2vec";
+  source: "tencent_word2vec";
   status: "available" | "disabled" | "unavailable";
   message: string;
 }

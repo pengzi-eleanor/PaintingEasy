@@ -6,7 +6,7 @@
 
 > **离线智能优化：** `smart` 当前使用可替换的结构化 Mock LLM Provider，不调用真实付费模型或公网。原始 Provider 响应必须在 Provider 内解析为严格 Pydantic 模型后才能进入搜索服务。
 
-> **关键词扩展：** 腾讯轻量中文词向量默认从后端本地文件读取，不发送 query；Wikidata 网络扩展可通过 `network_expansion: false` 关闭，ConceptNet 已默认停用。模型缺失、关闭或网络失败时保留原始 query。
+> **关键词扩展：** 腾讯轻量中文词向量默认从后端本地文件读取，不发送 query。模型缺失或关闭时保留原始 query。`network_expansion` 暂时只作为旧客户端兼容字段，不再触发公共知识服务。
 
 ## POST /api/v1/search/assist
 
@@ -18,7 +18,7 @@
 {"original_query":"暖色咖啡店","core_terms":[],"expanded_terms":[],"platform_terms":[],"default_query":"coffee warm lighting","platform_queries":[],"retrieval":{"strategy":"hybrid","embedding_enabled":true,"embedding_provider":"mock","embedding_model":"deterministic-mock","knowledge_base_version":"keyword-knowledge-v1","candidate_count":2,"degraded":false},"warnings":[],"query":"coffee warm lighting","suggestions":[],"platforms":[]}
 ```
 
-统一搜索入口。请求体为 `{"query":"暖色调咖啡店宣传海报","language":"auto","persona":"graphic_designer","optimization_mode":"basic","network_expansion":true,"platforms":["unsplash","pexels"]}`。`query` 去除首尾空白后最长 500 字；`language` 为 `auto`、`zh` 或 `en`；`persona` 和 `platforms` 可选。`optimization_mode` 为 `basic` 或 `smart`，旧请求缺失时按 `basic` 处理。`network_expansion` 旧请求缺失时为 `true`，设为 `false` 可禁止本次公共知识请求。
+统一搜索入口。请求体为 `{"query":"暖色调咖啡店宣传海报","language":"auto","persona":"graphic_designer","optimization_mode":"basic","platforms":["unsplash","pexels"]}`。`query` 去除首尾空白后最长 500 字；`language` 为 `auto`、`zh` 或 `en`；`persona` 和 `platforms` 可选。`optimization_mode` 为 `basic` 或 `smart`，旧请求缺失时按 `basic` 处理。
 
 响应保留 `query`、`suggestions`、`platforms` 等旧字段，并提供 `optimization_mode`、`knowledge_sources`、`platform_recommendations`、`core_intent_category`、`uncertainties` 和 `generation_status`。基础模式不会调用 LLM，生成状态为 `not_requested`；智能模式调用结构化 Provider，成功时为 `generated`，失败或额度不足时为 `fallback` 并返回完整基础结果。`generation_status.remaining_uses` 是前端可见的剩余次数；响应不会包含 API 密钥、Prompt 或原始模型响应。
 
@@ -30,27 +30,9 @@
 
 未来接入真实服务时，只需替换 `backend/app/providers.py` 中 `LanguageModelProvider` 的实现，并在 Provider 内完成外部 JSON 解析和严格模型校验，再通过依赖注入传给 service；平台 URL 始终由后端连接器生成。密钥只允许从 `AI_PROVIDER_API_KEY` 环境变量读取。`AI_PROVIDER` 默认 `mock`，`AI_SMART_QUOTA` 设置当前进程的可用次数；本阶段不会按非 mock 配置发起真实请求。
 
-### 外部知识扩展配置
+### Provider 与缓存配置
 
-Wikidata 仅提取中英文标签和别名；ConceptNet 仅接受 `HasType`、`UsedFor`、`AtLocation` 和 `RelatedTo` 白名单关系，结果数量受限且只作为 `expanded` 候选。两者优先读取 SQLite 缓存，并共享超时、有限重试、并发限制和熔断策略。
-
-可用环境变量：
-
-- `WIKIDATA_ENABLED`：控制可选网络 Provider，默认 `true`；
-- `CONCEPTNET_ENABLED`：保留兼容开关，默认 `false`；
-- `TENCENT_WORD2VEC_ENABLED`、`TENCENT_WORD2VEC_MODEL_PATH`：控制本地中文联想，默认启用并读取 `data/models/light_Tencent_AILab_ChineseEmbedding.bin`；
-- `WIKIDATA_ENDPOINT`、`CONCEPTNET_ENDPOINT`：默认指向两个官方 HTTPS 地址；
-- `KNOWLEDGE_USER_AGENT`：公共请求的可识别 User-Agent；
-- `KNOWLEDGE_CACHE_PATH`：缓存文件路径；缓存只保存规范化 query 的 SHA-256 key；
-- `KNOWLEDGE_HTTP_TIMEOUT_SECONDS`、`KNOWLEDGE_RETRY_COUNT`；
-- `KNOWLEDGE_CONCURRENCY_LIMIT`；
-- `KNOWLEDGE_CIRCUIT_FAILURE_THRESHOLD`、`KNOWLEDGE_CIRCUIT_COOLDOWN_SECONDS`。
-
-任一外部 Provider 失败只产生简短 warning；本地规则、原始 query 和旧兼容字段仍然可用。缓存不可用时直接查询已启用 Provider，外部能力整体不可用时回退本地规则。
-
-### 候选离线固化
-
-`backend/scripts/solidify_knowledge.py` 根据脱敏的候选统计生成审核报告。输入只包含候选级频次、保留/删除次数、来源、关系、语言标签和平台范围，不接受完整用户 query。默认 dry-run；只有人工审核字段为真、质量阈值通过且显式传入 `--approve` 时才写出版本化知识库候选。重复执行保持幂等，候选可通过 `enabled=false` 在后续版本禁用或回滚。
+腾讯词向量是当前唯一关键词知识提供器。翻译、大模型和图片语义识别保留独立 Provider 接口，可使用通用 HTTP 客户端接入外部服务。当前轻量缓存为有界进程内 TTL 缓存，只保存摘要键和标准化结果，服务重启后清空。
 
 ## GET /health
 

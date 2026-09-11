@@ -52,12 +52,6 @@ function searchSelected() {
 
 async function optimize() {
   if (!query.value.trim() || !search.persona || !search.optimizationMode) return;
-  if (
-    search.optimizationMode === "basic" &&
-    search.networkExpansionEnabled &&
-    !search.networkNoticeAcknowledged
-  )
-    return;
   search.start(query.value);
   const startedAt = performance.now();
   await track("search_session_start", { entry: "text" });
@@ -68,7 +62,7 @@ async function optimize() {
       search.persona,
       undefined,
       search.optimizationMode as OptimizationMode,
-      search.networkExpansionEnabled,
+      false,
     );
     search.succeed(result);
     await track("keyword_suggestions_generated", {
@@ -230,35 +224,14 @@ function deleteImage() {
                 ><span v-if="search.generationStatus?.status === 'fallback'"
                   >；本次已降级为基础优化</span
                 ></small>
-            <el-alert
-              v-if="
-                search.optimizationMode === 'basic' &&
-                search.networkExpansionEnabled &&
-                !search.networkNoticeAcknowledged
-              "
-              title="腾讯词向量在本地运行；基础优化仅会将本次搜索词发送到 Wikidata，不会发送图片、历史或密钥。"
-              type="info"
-              :closable="false"
-              show-icon
-            >
-              <template #default>
-                <el-button
-                  size="small"
-                  @click="search.acknowledgeNetworkNotice()"
-                  >我知道了</el-button
-                >
-              </template>
-            </el-alert><el-button
+            <el-button
               type="primary"
               class="primary-action"
               :loading="search.loading"
               :disabled="
                 !query.trim() ||
                 !search.persona ||
-                !search.optimizationMode ||
-                (search.optimizationMode === 'basic' &&
-                  search.networkExpansionEnabled &&
-                  !search.networkNoticeAcknowledged)
+                !search.optimizationMode
               "
               @click="optimize"
               >{{ search.optimizationMode === "smart" ? "智能优化关键词" : "基础优化关键词" }}</el-button
@@ -299,8 +272,6 @@ function deleteImage() {
           ><el-icon><Setting /></el-icon><span>设置</span></template
         ><SettingsPanel
           v-model="defaultPlatform"
-          :network-expansion="search.networkExpansionEnabled"
-          @update:network-expansion="search.setNetworkExpansion($event)"
       /></el-tab-pane>
     </el-tabs>
     <footer class="data-credit">感谢数据支持：腾讯 AI Lab 中文词向量</footer>

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { searchablePlatformOptions } from "../config/imageSearchSites";
-defineProps<{ modelValue: string; networkExpansion: boolean }>();
+defineProps<{ modelValue: string }>();
 defineEmits<{
   "update:modelValue": [value: string];
-  "update:networkExpansion": [value: boolean];
 }>();
 </script>
 
@@ -19,15 +18,8 @@ defineEmits<{
         :label="platform.label"
         :value="platform.value"
       /></el-select
-    ><label class="section-label">公共知识扩展</label
-    ><el-switch
-      :model-value="networkExpansion"
-      active-text="启用 Wikidata"
-      inactive-text="关闭网络扩展"
-      @update:model-value="$emit('update:networkExpansion', $event)"
-    />
     ><el-alert
-      title="腾讯词向量始终在本地运行；启用后，仅会把本次搜索词发送到 Wikidata。"
+      title="腾讯中文词向量在本地运行，搜索词不会发送到公共知识服务。"
       type="info"
       :closable="false"
       show-icon
