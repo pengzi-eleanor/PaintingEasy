@@ -11,13 +11,16 @@ import {
   buildPlatformUrl,
   imageSearchPlatforms,
 } from "./config/imageSearchSites";
-import type { SearchPlatformLink, SearchSuggestion } from "./types/search";
+import type {
+  OptimizationMode,
+  SearchPlatformLink,
+  SearchSuggestion,
+} from "./types/search";
 import { useHistoryStore } from "./stores/history";
 import { useSearchStore } from "./stores/search";
 
 const activeTab = ref("text"),
-  query = ref(""),
-  persona = ref("");
+  query = ref("");
 const imageName = ref(""),
   imageSuggestions = ref<SearchSuggestion[]>([]),
   imageFinalQuery = ref(""),
@@ -38,28 +41,38 @@ const selectedKeywords = computed(() =>
 );
 function searchSelected() {
   if (!search.selectedPlatform || !selectedKeywords.value.length) return;
-  const url = buildPlatformUrl(
-    search.selectedPlatform,
-    selectedKeywords.value.join(" "),
+  const platform = search.platforms.find(
+    (item) => item.platform === search.selectedPlatform,
   );
+  const url = platform?.supports_search_url
+    ? buildPlatformUrl(search.selectedPlatform, selectedKeywords.value.join(" "))
+    : platform?.url;
   if (url) window.open(url, "_blank");
 }
 
 async function optimize() {
-  if (!query.value.trim()) return;
+  if (!query.value.trim() || !search.persona || !search.optimizationMode) return;
+  if (
+    search.optimizationMode === "basic" &&
+    search.networkExpansionEnabled &&
+    !search.networkNoticeAcknowledged
+  )
+    return;
   search.start(query.value);
   const startedAt = performance.now();
-  await track("search_session_start", { entry: "text", query: query.value });
+  await track("search_session_start", { entry: "text" });
   try {
     const result = await assistSearch(
       query.value,
       "auto",
-      persona.value || undefined,
+      search.persona,
+      undefined,
+      search.optimizationMode as OptimizationMode,
+      search.networkExpansionEnabled,
     );
     search.succeed(result);
     await track("keyword_suggestions_generated", {
       entry: "text",
-      query: query.value,
       suggestion_count: result.suggestions.length,
       provider: result.provider,
       degraded: result.degraded,
@@ -101,7 +114,7 @@ async function analyzeUploadedImage() {
   try {
     const result = await analyzeImage(
       imageId.value,
-      persona.value || undefined,
+      search.persona || undefined,
       imageSelectedPlatform.value,
     );
     imageSuggestions.value = result.suggestions;
@@ -167,10 +180,23 @@ function deleteImage() {
           @search="searchSelected"
           @update:final-query="search.finalQuery = $event"
           ><template #input
-            ><div class="persona-picker">
+            ><div class="search-heading">
+              <div><strong>输入素材关键词</strong><small>描述主体、场景或风格</small></div>
+              <span>Ctrl + Enter</span>
+            </div>
+            <el-input
+              v-model="query"
+              type="textarea"
+              :rows="3"
+              maxlength="200"
+              show-word-limit
+              placeholder="例如：暖色调咖啡店宣传海报"
+              @keyup.ctrl.enter="optimize"
+            />
+            <div class="search-options"><div class="persona-picker">
               <span class="persona-label">您的身份是：</span
               ><el-select
-                v-model="persona"
+                v-model="search.persona"
                 clearable
                 placeholder="请选择"
                 class="persona-select"
@@ -187,22 +213,55 @@ function deleteImage() {
                   value="ui_designer"
               /></el-select>
             </div>
-            <label class="section-label">描述你想找的素材</label
-            ><el-input
-              v-model="query"
-              type="textarea"
-              :rows="3"
-              maxlength="200"
-              show-word-limit
-              placeholder="例如：暖色调咖啡店宣传海报"
-              @keyup.ctrl.enter="optimize"
-            /><el-button
+            <div class="optimization-picker">
+              <span class="persona-label">搜索方式：</span>
+              <el-radio-group v-model="search.optimizationMode">
+                <el-radio-button value="basic">基础优化</el-radio-button>
+                <el-radio-button value="smart">智能优化</el-radio-button>
+              </el-radio-group>
+            </div></div>
+            <small class="mode-hint" v-if="search.optimizationMode === 'basic'"
+                >使用规则与知识来源，不消耗 AI 次数</small
+              >
+              <small class="mode-hint" v-else-if="search.optimizationMode === 'smart'"
+                >智能优化会消耗 AI 额度<span
+                  v-if="search.generationStatus?.remaining_uses != null"
+                  >；剩余 {{ search.generationStatus.remaining_uses }} 次</span
+                ><span v-if="search.generationStatus?.status === 'fallback'"
+                  >；本次已降级为基础优化</span
+                ></small>
+            <el-alert
+              v-if="
+                search.optimizationMode === 'basic' &&
+                search.networkExpansionEnabled &&
+                !search.networkNoticeAcknowledged
+              "
+              title="腾讯词向量在本地运行；基础优化仅会将本次搜索词发送到 Wikidata，不会发送图片、历史或密钥。"
+              type="info"
+              :closable="false"
+              show-icon
+            >
+              <template #default>
+                <el-button
+                  size="small"
+                  @click="search.acknowledgeNetworkNotice()"
+                  >我知道了</el-button
+                >
+              </template>
+            </el-alert><el-button
               type="primary"
               class="primary-action"
               :loading="search.loading"
-              :disabled="!query.trim()"
+              :disabled="
+                !query.trim() ||
+                !search.persona ||
+                !search.optimizationMode ||
+                (search.optimizationMode === 'basic' &&
+                  search.networkExpansionEnabled &&
+                  !search.networkNoticeAcknowledged)
+              "
               @click="optimize"
-              >智能优化关键词</el-button
+              >{{ search.optimizationMode === "smart" ? "智能优化关键词" : "基础优化关键词" }}</el-button
             ></template
           ></KeywordOptimizePanel
         ></el-tab-pane
@@ -216,7 +275,7 @@ function deleteImage() {
           :platforms="imagePlatforms"
           :selected-platform="imageSelectedPlatform"
           :final-query="imageFinalQuery"
-          :persona="persona"
+          :persona="search.persona"
           :preview-url="imagePreview"
           :image-id="imageId"
           :loading="imageLoading"
@@ -238,8 +297,12 @@ function deleteImage() {
       <el-tab-pane name="settings"
         ><template #label
           ><el-icon><Setting /></el-icon><span>设置</span></template
-        ><SettingsPanel v-model="defaultPlatform"
+        ><SettingsPanel
+          v-model="defaultPlatform"
+          :network-expansion="search.networkExpansionEnabled"
+          @update:network-expansion="search.setNetworkExpansion($event)"
       /></el-tab-pane>
     </el-tabs>
+    <footer class="data-credit">感谢数据支持：腾讯 AI Lab 中文词向量</footer>
   </main>
 </template>

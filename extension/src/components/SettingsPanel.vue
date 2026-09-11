@@ -1,6 +1,10 @@
 <script setup lang="ts">
-defineProps<{ modelValue: string }>();
-defineEmits<{ "update:modelValue": [value: string] }>();
+import { searchablePlatformOptions } from "../config/imageSearchSites";
+defineProps<{ modelValue: string; networkExpansion: boolean }>();
+defineEmits<{
+  "update:modelValue": [value: string];
+  "update:networkExpansion": [value: boolean];
+}>();
 </script>
 
 <template>
@@ -9,13 +13,21 @@ defineEmits<{ "update:modelValue": [value: string] }>();
     ><el-select
       :model-value="modelValue"
       @update:model-value="$emit('update:modelValue', $event)"
-      ><el-option label="Unsplash" value="unsplash" /><el-option
-        label="Pexels"
-        value="pexels" /><el-option
-        label="Pixabay"
-        value="pixabay" /></el-select
+      ><el-option
+        v-for="platform in searchablePlatformOptions"
+        :key="platform.value"
+        :label="platform.label"
+        :value="platform.value"
+      /></el-select
+    ><label class="section-label">公共知识扩展</label
+    ><el-switch
+      :model-value="networkExpansion"
+      active-text="启用 Wikidata"
+      inactive-text="关闭网络扩展"
+      @update:model-value="$emit('update:networkExpansion', $event)"
+    />
     ><el-alert
-      title="当前版本仅使用本地 Mock 数据，不会上传图片或查询内容。"
+      title="腾讯词向量始终在本地运行；启用后，仅会把本次搜索词发送到 Wikidata。"
       type="info"
       :closable="false"
       show-icon

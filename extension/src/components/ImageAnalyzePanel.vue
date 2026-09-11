@@ -101,7 +101,8 @@ function resetFileInput(event: Event) {
           ><small>{{ site.description }}</small></span
         >
         <em v-if="site.requiresLogin">需登录</em>
-        <b>打开</b>
+        <em class="copyright-badge" :title="`${site.copyrightNotice}；不构成法律保证`">{{ site.copyrightStatus === "inspiration_only" ? "仅供灵感" : "核对许可" }}</em>
+        <b>{{ site.supportsSearchUrl ? "打开" : "站内操作" }}</b>
       </a>
     </div>
   </section>

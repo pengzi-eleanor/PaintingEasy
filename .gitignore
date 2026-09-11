@@ -23,3 +23,7 @@ backend/**/__pycache__/
 .DS_Store
 backend/logs/*.jsonl
 backend/uploads/
+backend/data/*.sqlite3
+backend/data/*.sqlite3-shm
+backend/data/*.sqlite3-wal
+backend/data/models/

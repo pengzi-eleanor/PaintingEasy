@@ -1,8 +1,20 @@
-import json
 from pathlib import Path
+from typing import Literal
 from urllib.parse import quote
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, model_validator
+
+PersonaId = Literal[
+    "graphic_designer", "illustrator", "photographer", "ecommerce_worker", "ui_designer"
+]
+CopyrightStatus = Literal[
+    "inspiration_only",
+    "license_per_item",
+    "attribution_required",
+    "broad_reuse_license",
+    "commercial_license",
+    "unknown",
+]
 
 
 class TermRule(BaseModel):
@@ -21,30 +33,71 @@ class QueryPolicy(BaseModel):
 
 
 class PlatformConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
     id: str
     name: str
+    homepage_url: str
     strengths: list[str]
     weaknesses: list[str]
     supported_languages: list[str]
     preferred_categories: list[str]
     term_rules: list[TermRule]
     query_policy: QueryPolicy
-    url_template: str
+    persona_priorities: dict[PersonaId, int]
+    recommendation_reason: str
+    supports_search_url: bool
+    interaction_mode: Literal["executable_search", "recommendation_only", "in_site_search"]
+    url_template: str | None
     requires_login: bool
+    copyright_status: CopyrightStatus
+    copyright_notice: str
     enabled: bool
     version: str
 
+    @model_validator(mode="after")
+    def validate_search_url(self):
+        if self.supports_search_url != (self.url_template is not None):
+            raise ValueError("supports_search_url and url_template must agree")
+        if self.url_template is not None and self.url_template.count("{query}") != 1:
+            raise ValueError("executable URL must contain exactly one query placeholder")
+        if self.supports_search_url != (self.interaction_mode == "executable_search"):
+            raise ValueError("interaction_mode must reflect URL capability")
+        return self
 
-def load_platforms() -> tuple[PlatformConfig, ...]:
+
+class PlatformCatalog(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    config_version: str
+    review_status: Literal["pending_user_review", "reviewed"]
+    platforms: tuple[PlatformConfig, ...]
+
+
+def load_platform_catalog() -> PlatformCatalog:
     path = Path(__file__).parents[3] / "shared" / "platforms.json"
-    return tuple(PlatformConfig.model_validate(item) for item in json.loads(path.read_text(encoding="utf-8")))
+    return PlatformCatalog.model_validate_json(path.read_text(encoding="utf-8"))
 
 
-PLATFORMS = load_platforms()
+PLATFORM_CATALOG = load_platform_catalog()
+PLATFORMS = PLATFORM_CATALOG.platforms
 PLATFORMS_BY_ID = {item.id: item for item in PLATFORMS}
 
 
-def build_platform_query(config: PlatformConfig, core_terms: list[str], expanded_terms: list[str], language: str = "auto") -> str:
+def platforms_for_persona(persona: str | None) -> list[PlatformConfig]:
+    enabled = [item for item in PLATFORMS if item.enabled]
+    if not persona:
+        return enabled
+    ranked = [item for item in enabled if persona in item.persona_priorities]
+    return sorted(ranked, key=lambda item: (item.persona_priorities[persona], item.id))
+
+
+def build_platform_query(
+    config: PlatformConfig,
+    core_terms: list[str],
+    expanded_terms: list[str],
+    language: str = "auto",
+) -> str:
     policy = config.query_policy
     terms: list[str] = []
     # A platform may choose its preferred language, while an explicit supported
@@ -64,7 +117,9 @@ def build_platform_query(config: PlatformConfig, core_terms: list[str], expanded
     return policy.separator.join(result[:policy.max_terms])
 
 
-def build_platform_url(config: PlatformConfig, terms: str) -> str:
+def build_platform_url(config: PlatformConfig, terms: str) -> str | None:
+    if not config.supports_search_url or config.url_template is None:
+        return None
     return config.url_template.replace("{query}", quote(terms, safe=""))
 
 

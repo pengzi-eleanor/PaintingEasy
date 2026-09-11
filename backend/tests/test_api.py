@@ -5,7 +5,8 @@ from typing import Any
 import httpx
 
 from app.main import app
-from app.models.schemas import KeywordSuggestion
+from app.models.schemas import KeywordSuggestion, SearchAssistRequest, SearchAssistResponse
+from app.services.platforms import PLATFORMS
 
 
 def request(method: str, path: str, **kwargs: Any) -> httpx.Response:
@@ -57,10 +58,82 @@ def test_search_assist_returns_keywords_and_platform_links() -> None:
     body = response.json()
     assert body["original_query"] == "暖色咖啡店海报"
     assert body["provider"] == "mock"
-    assert body["degraded"] is False
-    assert len(body["platforms"]) == 6
-    assert {item["platform"] for item in body["platforms"]} == {"unsplash", "pexels", "pixabay", "freepik", "vcg", "huaban"}
-    assert all("coffee" in item["query"] for item in body["platforms"])
+    assert body["degraded"] is True
+    assert len(body["platforms"]) == len([item for item in PLATFORMS if item.enabled])
+    assert {item["platform"] for item in body["platforms"]} == {
+        item.id for item in PLATFORMS if item.enabled
+    }
+    assert all(item["query"] for item in body["platforms"])
+    assert all(item["url"] for item in body["platforms"])
+    assert body["optimization_mode"] == "basic"
+    assert body["generation_status"]["ai_used"] is False
+    assert {item["source"] for item in body["knowledge_sources"]} == {
+        "wikidata",
+    }
+    assert {item["status"] for item in body["knowledge_sources"]} == {
+        "original_fallback"
+    }
+    assert body["retrieval"]["strategy"] == "fallback"
+    assert len(body["platform_recommendations"]) <= 5
+
+
+def test_search_assist_keeps_all_persona_platforms() -> None:
+    body = request(
+        "POST",
+        "/api/v1/search/assist",
+        json={"query": "品牌海报", "persona": "graphic_designer"},
+    ).json()
+    assert [item["name"] for item in body["platforms"]] == [
+        "花瓣网", "小红书", "Pinterest", "Pixso", "创客贴", "Behance", "Freepik"
+    ]
+    xiaohongshu = next(item for item in body["platforms"] if item["name"] == "小红书")
+    assert xiaohongshu["supports_search_url"] is False
+    assert xiaohongshu["url"] == "https://www.xiaohongshu.com/"
+
+
+def test_search_request_without_mode_keeps_basic_compatibility() -> None:
+    request_model = SearchAssistRequest.model_validate({"query": "猫"})
+    assert request_model.optimization_mode == "basic"
+    assert request_model.network_expansion is True
+    serialized = SearchAssistResponse.model_validate(
+        request("POST", "/api/v1/search/assist", json={"query": "猫"}).json()
+    ).model_dump()
+    assert serialized["query"]
+    assert serialized["suggestions"]
+    assert serialized["platforms"]
+
+
+def test_user_can_disable_network_expansion_per_request() -> None:
+    body = request(
+        "POST",
+        "/api/v1/search/assist",
+        json={"query": "非敏感测试词", "network_expansion": False},
+    ).json()
+    assert {item["status"] for item in body["knowledge_sources"]} == {
+        "original_fallback"
+    }
+    assert all(
+        "关闭" in item["message"] or "未启用" in item["message"]
+        for item in body["knowledge_sources"]
+    )
+
+
+def test_smart_mode_uses_structured_offline_mock() -> None:
+    body = request(
+        "POST",
+        "/api/v1/search/assist",
+        json={
+            "query": "咖啡店海报",
+            "persona": "graphic_designer",
+            "optimization_mode": "smart",
+        },
+    ).json()
+    assert body["optimization_mode"] == "smart"
+    assert body["is_ai_generated"] is True
+    assert body["generation_status"]["status"] == "generated"
+    assert body["generation_status"]["ai_used"] is True
+    assert isinstance(body["generation_status"]["remaining_uses"], int)
+    assert body["suggestions"][0]["keyword"] == "咖啡店海报"
 
 
 def test_search_assist_rejects_blank_query() -> None:
@@ -70,20 +143,25 @@ def test_search_assist_rejects_blank_query() -> None:
     assert response.json()["degraded"] is True
 
 
-def test_search_assist_chinese_dictionary_keywords() -> None:
+def test_search_assist_chinese_keeps_original_without_manual_dictionary() -> None:
     body = request("POST", "/api/v1/search/assist", json={"query": "复古油画风猫"}).json()
-    assert {"cat", "oil painting", "vintage"} <= {item["keyword"] for item in body["suggestions"]}
+    assert [item["keyword"] for item in body["suggestions"]] == ["复古油画风猫"]
+    assert body["suggestions"][0]["source"] == "original"
 
 
-def test_search_assist_english_keywords_are_deduplicated() -> None:
-    body = request("POST", "/api/v1/search/assist", json={"query": "vintage vintage cat oil painting"}).json()
+def test_search_assist_english_keeps_normalized_original() -> None:
+    body = request(
+        "POST",
+        "/api/v1/search/assist",
+        json={"query": "vintage vintage cat oil painting"},
+    ).json()
     keywords = [item["keyword"] for item in body["suggestions"]]
-    assert keywords == ["vintage", "cat", "oil painting"]
+    assert keywords == ["vintage vintage cat oil painting"]
 
 
-def test_search_assist_mixed_keywords() -> None:
+def test_search_assist_mixed_input_keeps_original_intent() -> None:
     body = request("POST", "/api/v1/search/assist", json={"query": "cyberpunk 城市 night"}).json()
-    assert {"cyberpunk", "city", "night"} <= {item["keyword"] for item in body["suggestions"]}
+    assert [item["keyword"] for item in body["suggestions"]] == ["cyberpunk 城市 night"]
 
 
 def test_search_assist_provider_failure_degrades() -> None:
@@ -94,7 +172,7 @@ def test_search_assist_provider_failure_degrades() -> None:
             raise RuntimeError("offline")
 
     body = KeywordOptimizeService(BrokenProvider()).optimize("plain query")
-    assert body.suggestions[0].source == "fallback"
+    assert body.suggestions[0].source == "original"
     assert body.degraded is True
 
 

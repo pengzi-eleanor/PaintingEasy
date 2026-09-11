@@ -56,6 +56,13 @@ export interface SearchPlatformLink {
   url: string;
   query: string;
   requiresLogin?: boolean;
+  requires_login?: boolean;
+  supports_search_url?: boolean;
+  interaction_mode?: "executable_search" | "recommendation_only" | "in_site_search";
+  copyright_status?: CopyrightStatus;
+  copyright_notice?: string;
+  recommendation_reason?: string;
+  config_version?: string;
   terms?: string[];
   core_term_ids?: string[];
   expanded_term_ids?: string[];
@@ -65,11 +72,25 @@ export interface SearchPlatformLink {
 }
 
 export interface RecommendedSearchSite {
+  platform: string;
   name: string;
   url: string;
   description: string;
   requiresLogin?: boolean;
+  supportsSearchUrl: boolean;
+  interactionMode: "executable_search" | "recommendation_only" | "in_site_search";
+  copyrightStatus: CopyrightStatus;
+  copyrightNotice: string;
+  version: string;
 }
+
+export type CopyrightStatus =
+  | "inspiration_only"
+  | "license_per_item"
+  | "attribution_required"
+  | "broad_reuse_license"
+  | "commercial_license"
+  | "unknown";
 
 export interface SearchAssistResponse {
   original_query: string;
@@ -95,6 +116,38 @@ export interface SearchAssistResponse {
     degraded: boolean;
   };
   warnings?: string[];
+  optimization_mode: OptimizationMode;
+  knowledge_sources: KnowledgeSourceStatus[];
+  platform_recommendations: PlatformRecommendation[];
+  generation_status: GenerationStatus;
+  core_intent_category?: "subject" | "scene" | "style" | "color" | "composition" | "general";
+  uncertainties?: string[];
+}
+
+export type OptimizationMode = "basic" | "smart";
+export interface KnowledgeSourceStatus {
+  source: "local_rules" | "wikidata" | "conceptnet" | "tencent_word2vec";
+  status: "available" | "disabled" | "unavailable";
+  message: string;
+}
+export interface PlatformRecommendation {
+  platform: string;
+  name: string;
+  rank: number;
+  reason: string;
+  homepage_url?: string;
+  supports_search_url?: boolean;
+  interaction_mode?: "executable_search" | "recommendation_only" | "in_site_search";
+  requires_login?: boolean;
+  copyright_status?: CopyrightStatus;
+  copyright_notice?: string;
+  config_version?: string;
+}
+export interface GenerationStatus {
+  status: "not_requested" | "not_available" | "generated" | "fallback";
+  ai_used: boolean;
+  message: string;
+  remaining_uses?: number | null;
 }
 
 export interface SearchHistoryItem {

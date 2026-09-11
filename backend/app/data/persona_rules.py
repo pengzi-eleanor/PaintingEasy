@@ -9,7 +9,14 @@ from app.data.keyword_knowledge import KeywordCategory, LocalizedTerms
 PersonaId = Literal[
     "graphic_designer", "illustrator", "photographer", "ecommerce_worker", "ui_designer"
 ]
-PlatformId = Literal["unsplash", "pexels", "pixabay", "freepik", "vcg", "huaban"]
+PlatformId = str
+
+
+def _platform_priority(persona: PersonaId) -> list[str]:
+    # Shared platform configuration is the sole source of career ordering.
+    from app.services.platforms import platforms_for_persona
+
+    return [item.id for item in platforms_for_persona(persona)]
 
 
 class ModifierCondition(BaseModel):
@@ -134,7 +141,7 @@ PERSONA_PROFILES = (
             ),
         ],
         blocked_expansions=["subject_person", "subject_cat"],
-        platform_priority=["freepik", "huaban", "vcg", "pixabay", "unsplash", "pexels"],
+        platform_priority=_platform_priority("graphic_designer"),
         prompt_context="关注版式层级、文字留白、品牌一致性与营销用途，不改变原始主体。",
         version=1,
     ),
@@ -170,7 +177,7 @@ PERSONA_PROFILES = (
             ),
         ],
         blocked_expansions=["subject_technology"],
-        platform_priority=["freepik", "huaban", "pixabay", "vcg", "unsplash", "pexels"],
+        platform_priority=_platform_priority("illustrator"),
         prompt_context="关注画风、角色、概念设定与色彩语言，只在明确语义下扩展。",
         version=1,
     ),
@@ -208,7 +215,7 @@ PERSONA_PROFILES = (
             ),
         ],
         blocked_expansions=["style_oil_painting"],
-        platform_priority=["unsplash", "pexels", "vcg", "pixabay", "freepik", "huaban"],
+        platform_priority=_platform_priority("photographer"),
         prompt_context="关注真实光线、镜头、景别与构图，不将摄影偏好变成新主体。",
         version=1,
     ),
@@ -251,7 +258,7 @@ PERSONA_PROFILES = (
             ),
         ],
         blocked_expansions=["general_inspiration"],
-        platform_priority=["freepik", "vcg", "pixabay", "pexels", "unsplash", "huaban"],
+        platform_priority=_platform_priority("ecommerce_worker"),
         prompt_context="关注商品主体的清晰展示、背景控制和商业用途，不替换商品主体。",
         version=1,
     ),
@@ -301,7 +308,7 @@ PERSONA_PROFILES = (
             ),
         ],
         blocked_expansions=["subject_person", "subject_cat"],
-        platform_priority=["freepik", "huaban", "unsplash", "pixabay", "pexels", "vcg"],
+        platform_priority=_platform_priority("ui_designer"),
         prompt_context="仅在明确 UI 意图时关注界面、设备、组件和设计系统，保留原始主体。",
         version=1,
     ),

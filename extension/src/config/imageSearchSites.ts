@@ -1,33 +1,66 @@
-import type { RecommendedSearchSite, SearchPlatformLink } from '../types/search'
-import platformConfigs from '../../../shared/platforms.json'
+import type { CopyrightStatus, RecommendedSearchSite, SearchPlatformLink } from '../types/search'
+import catalog from '../../../shared/platforms.json'
 
-export const imageSearchPlatforms: SearchPlatformLink[] = platformConfigs.filter((item) => item.enabled).map((item) => ({
-  platform: item.id, name: item.name, url: item.url_template.replace('{query}', ''), query: '', requiresLogin: item.requires_login,
-}))
+type InteractionMode = 'executable_search' | 'recommendation_only' | 'in_site_search'
+type PlatformConfig = (typeof catalog.platforms)[number]
 
-export function buildPlatformUrl(platform: string, terms: string): string {
-  const config = platformConfigs.find((item) => item.id === platform && item.enabled)
-  return config ? config.url_template.replace('{query}', encodeURIComponent(terms)) : ''
+const enabledPlatforms = catalog.platforms.filter((item) => item.enabled)
+
+function toPlatformLink(item: PlatformConfig): SearchPlatformLink {
+  return {
+    platform: item.id,
+    name: item.name,
+    url: item.url_template?.replace('{query}', '') || '',
+    query: '',
+    requiresLogin: item.requires_login,
+    requires_login: item.requires_login,
+    supports_search_url: item.supports_search_url,
+    interaction_mode: item.interaction_mode as InteractionMode,
+    copyright_status: item.copyright_status as CopyrightStatus,
+    copyright_notice: item.copyright_notice,
+    recommendation_reason: item.recommendation_reason,
+    config_version: item.version,
+  }
 }
 
-const sites = {
-  unsplash: { name: 'Unsplash', url: 'https://unsplash.com/', description: '高质量摄影与氛围图' },
-  pexels: { name: 'Pexels', url: 'https://www.pexels.com/', description: '免费摄影与视频素材' },
-  pixabay: { name: 'Pixabay', url: 'https://pixabay.com/', description: '图片、插画与矢量素材' },
-  freepik: { name: 'Freepik', url: 'https://www.freepik.com/', description: '设计模板、矢量与图标素材' },
-  vcg: { name: '视觉中国', url: 'https://www.vcg.com/', description: '商业摄影与本土化内容', requiresLogin: true },
-  huaban: { name: '花瓣网', url: 'https://huaban.com/', description: '设计灵感与案例采集', requiresLogin: true },
-} satisfies Record<string, RecommendedSearchSite>
+export const imageSearchPlatforms: SearchPlatformLink[] = enabledPlatforms
+  .filter((item) => item.supports_search_url && item.url_template)
+  .map(toPlatformLink)
 
-const recommendations: Record<string, Array<keyof typeof sites>> = {
-  graphic_designer: ['freepik', 'huaban', 'vcg'],
-  illustrator: ['freepik', 'huaban', 'pixabay'],
-  photographer: ['unsplash', 'pexels', 'vcg'],
-  ecommerce_worker: ['freepik', 'vcg', 'pixabay'],
-  ui_designer: ['freepik', 'huaban', 'unsplash'],
-  default: ['unsplash', 'freepik', 'huaban'],
+export function buildPlatformUrl(platform: string, terms: string): string {
+  const config = enabledPlatforms.find((item) => item.id === platform)
+  if (!config?.supports_search_url || !config.url_template) return ''
+  return config.url_template.replace('{query}', encodeURIComponent(terms))
 }
 
 export function getRecommendedSearchSites(persona?: string): RecommendedSearchSite[] {
-  return (recommendations[persona || 'default'] || recommendations.default).map((key) => sites[key])
+  const ranked = persona
+    ? enabledPlatforms
+        .filter((item) => persona in item.persona_priorities)
+        .sort((left, right) => {
+          const priorities = (item: PlatformConfig) => item.persona_priorities as Record<string, number>
+          return priorities(left)[persona] - priorities(right)[persona] || left.id.localeCompare(right.id)
+        })
+    : enabledPlatforms
+  return ranked.map((item) => ({
+    platform: item.id,
+    name: item.name,
+    url: item.homepage_url,
+    description: item.recommendation_reason,
+    requiresLogin: item.requires_login,
+    supportsSearchUrl: item.supports_search_url,
+    interactionMode: item.interaction_mode as InteractionMode,
+    copyrightStatus: item.copyright_status as CopyrightStatus,
+    copyrightNotice: item.copyright_notice,
+    version: item.version,
+  }))
 }
+
+export const searchablePlatformOptions = imageSearchPlatforms.map((item) => ({
+  label: item.name,
+  value: item.platform,
+  copyrightStatus: item.copyright_status || 'unknown',
+}))
+
+export const platformConfigVersion = catalog.config_version
+export const platformOrderReviewStatus = catalog.review_status

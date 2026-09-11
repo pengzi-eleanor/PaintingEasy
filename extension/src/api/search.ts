@@ -1,4 +1,4 @@
-import type { SearchAssistResponse } from "../types/search";
+import type { OptimizationMode, SearchAssistResponse } from "../types/search";
 import type {
   ImageAnalyzeResponse,
   ImageUploadResponse,
@@ -32,13 +32,22 @@ export async function assistSearch(
   language = "auto",
   persona?: string,
   platforms?: string[],
+  optimizationMode: OptimizationMode = "basic",
+  networkExpansion = true,
 ): Promise<SearchAssistResponse> {
   return requestJson<SearchAssistResponse>(
     `${API_BASE_URL}/api/v1/search/assist`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, language, persona, platforms }),
+      body: JSON.stringify({
+        query,
+        language,
+        persona,
+        platforms,
+        optimization_mode: optimizationMode,
+        network_expansion: networkExpansion,
+      }),
     },
   );
 }
