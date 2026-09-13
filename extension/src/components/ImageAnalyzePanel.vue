@@ -2,7 +2,7 @@
 import { Picture } from "@element-plus/icons-vue";
 import KeywordSelectionPanel from "./KeywordSelectionPanel.vue";
 import { computed, ref } from "vue";
-import { getRecommendedSearchSites } from "../config/imageSearchSites";
+import { getRecommendedPlatformLinks } from "../config/imageSearchSites";
 import type { SearchPlatformLink, SearchSuggestion } from "../types/search";
 const props = defineProps<{
   imageName: string;
@@ -24,11 +24,12 @@ const emit = defineEmits<{
   remove: [keyword: string];
   "update:finalQuery": [value: string];
   selectPlatform: [platform: string];
+  "update:persona": [value: string];
   search: [];
 }>();
 const previewOpen = ref(false);
-const recommendedSites = computed(() =>
-  getRecommendedSearchSites(props.persona),
+const displayedPlatforms = computed(() =>
+  getRecommendedPlatformLinks(props.persona).slice(0, 7),
 );
 function resetFileInput(event: Event) {
   (event.target as HTMLInputElement).value = "";
@@ -37,6 +38,24 @@ function resetFileInput(event: Event) {
 
 <template>
   <section class="panel">
+    <div class="image-persona-picker">
+      <span class="persona-label">您的身份是：</span
+      ><el-select
+        :model-value="persona"
+        clearable
+        placeholder="请选择身份"
+        @update:model-value="emit('update:persona', $event)"
+        ><el-option label="平面设计师" value="graphic_designer" /><el-option
+          label="插画师"
+          value="illustrator" /><el-option
+          label="摄影师"
+          value="photographer" /><el-option
+          label="电商工作者"
+          value="ecommerce_worker" /><el-option
+          label="UI 设计师"
+          value="ui_designer"
+      /></el-select>
+    </div>
     <div class="image-upload-area">
       <label class="upload-box"
         ><input
@@ -52,7 +71,7 @@ function resetFileInput(event: Event) {
           @click.prevent.stop="previewOpen = true"
         /><el-icon v-else size="34"><Picture /></el-icon
         ><strong>{{ imageName || "选择一张图片" }}</strong
-        ><span>支持 JPG、PNG、WebP（最大 5MB）</span></label
+        ><span>支持 JPG、PNG、WebP（最大 10MB）</span></label
       ><el-button
         v-if="imageName"
         class="clear-image-button"
@@ -77,7 +96,7 @@ function resetFileInput(event: Event) {
     <KeywordSelectionPanel
       v-if="suggestions.length"
       :suggestions="suggestions"
-      :platforms="platforms"
+      :platforms="displayedPlatforms"
       :selected-platform="selectedPlatform"
       :final-query="finalQuery"
       @remove="(keyword) => emit('remove', keyword)"
@@ -85,25 +104,5 @@ function resetFileInput(event: Event) {
       @search="emit('search')"
       @update:final-query="(value) => emit('update:finalQuery', value)"
     />
-    <div class="recommended-sites">
-      <div class="result-title">
-        <span>{{ persona ? "根据您的职业推荐" : "常用素材网站推荐" }}</span>
-      </div>
-      <a
-        v-for="site in recommendedSites"
-        :key="site.name"
-        :href="site.url"
-        target="_blank"
-        rel="noreferrer"
-      >
-        <span
-          ><strong>{{ site.name }}</strong
-          ><small>{{ site.description }}</small></span
-        >
-        <em v-if="site.requiresLogin">需登录</em>
-        <em class="copyright-badge" :title="`${site.copyrightNotice}；不构成法律保证`">{{ site.copyrightStatus === "inspiration_only" ? "仅供灵感" : "核对许可" }}</em>
-        <b>{{ site.supportsSearchUrl ? "打开" : "站内操作" }}</b>
-      </a>
-    </div>
   </section>
 </template>

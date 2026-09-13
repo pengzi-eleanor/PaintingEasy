@@ -10,10 +10,11 @@
   --el-color-primary-light-5: #96a4aa;
   --el-color-primary-light-8: #d5dfe2;
   --el-color-primary-light-9: #edf3f4;
+  --el-color-primary-dark-2: #243b45;
   --el-border-radius-base: 8px;
   --el-font-size-base: 12px;
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { margin: 0; min-width: 380px; background: #f3f4f6; }
 button, input, textarea { font: inherit; }
 .popup-shell { width: 380px; min-height: 520px; background: #fff; }
@@ -21,6 +22,8 @@ button, input, textarea { font: inherit; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; color: #fff; font-size: 14px; font-weight: 750; border-radius: 8px; background: var(--accent); }
 .brand h1 { margin: 0; font-size: 15px; font-weight: 720; letter-spacing: -.2px; }
 .brand p { margin: 1px 0 0; color: #9297a2; font-size: 10px; }
+.brand-guide-button { display: flex; align-items: center; gap: 4px; margin-left: auto; padding: 5px 6px; color: var(--accent); font-size: 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
+.brand-guide-button:hover, .brand-guide-button:focus-visible { background: var(--accent-soft); outline: none; }
 .main-tabs .el-tabs__header { margin: 0; padding: 0 10px; border-bottom: 1px solid #f0f1f3; }
 .main-tabs .el-tabs__nav-wrap::after { display: none; }
 .main-tabs .el-tabs__item { height: 42px; gap: 4px; padding: 0 7px; color: #8a8f99; font-size: 11px; }
@@ -39,6 +42,9 @@ button, input, textarea { font: inherit; }
 .persona-picker { display: flex; flex-direction: column; align-items: stretch; gap: 5px; margin: 0; }
 .persona-label { color: #646a75; font-size: 11px; font-weight: 550; white-space: nowrap; }
 .persona-select { flex: 1; }
+.persona-select .el-select__wrapper,
+.persona-select .el-select__selected-item,
+.persona-select .el-select__placeholder { font-size: 12px; }
 .optimization-picker { margin: 0; }
 .optimization-picker > .persona-label { display: block; margin-bottom: 5px; }
 .optimization-picker .el-radio-group { width: 100%; }
@@ -48,6 +54,8 @@ button, input, textarea { font: inherit; }
 .panel .el-textarea__inner { min-height: 76px !important; padding: 10px 11px; border: 0; box-shadow: 0 0 0 1px #dfe2e7 inset; }
 .panel .el-textarea__inner:focus { box-shadow: 0 0 0 1.5px var(--accent) inset; }
 .primary-action, .search-button { width: 100%; height: 36px; border-radius: 8px; font-weight: 650; }
+.el-button--primary:active,
+.el-button--primary:focus-visible { border-color: var(--accent); background-color: var(--accent); }
 .primary-action { margin-top: 10px; }
 .panel > .el-alert { margin-bottom: 10px; padding: 7px 9px; }
 .panel > .el-alert .el-alert__title { font-size: 10px; line-height: 1.4; }
@@ -84,15 +92,6 @@ button, input, textarea { font: inherit; }
 .upload-box strong { color: #3f434b; font-size: 12px; }
 .upload-box span { font-size: 9px; }
 .clear-image-button { position: absolute; right: 6px; bottom: 5px; height: 24px; padding: 0 8px; }
-.recommended-sites { margin-top: 14px; padding-top: 11px; border-top: 1px solid #eceef2; }
-.recommended-sites a { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 7px 8px; color: inherit; text-decoration: none; border-radius: 7px; background: #f7f7f8; }
-.recommended-sites a:hover { background: #f0f2f5; }
-.recommended-sites a > span { min-width: 0; flex: 1; }
-.recommended-sites strong, .recommended-sites small { display: block; }
-.recommended-sites strong { color: #353941; font-size: 11px; }
-.recommended-sites small { overflow: hidden; margin-top: 1px; color: #9297a2; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.recommended-sites em { padding: 1px 4px; color: #777d88; font-size: 8px; font-style: normal; white-space: nowrap; border-radius: 4px; background: #e8eaed; }
-.recommended-sites b { color: var(--accent); font-size: 9px; font-weight: 650; }
 .history-item { margin-bottom: 6px; padding: 9px 10px; border-radius: 8px; background: #f7f7f8; }
 .history-item strong { display: inline-block; overflow: hidden; max-width: 230px; color: #353941; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .history-item small { float: right; color: #a2a6ae; font-size: 8px; }
@@ -102,4 +101,19 @@ button, input, textarea { font: inherit; }
 .version { margin-top: auto; color: #b1b4bb; font-size: 9px; text-align: center; }
 .data-credit { padding: 9px 18px 12px; color: #9ba2a5; font-size: 8px; text-align: center; border-top: 1px solid #f0f2f3; }
 .error-text { color: #d14343; font-size: 10px; }
+.guide-heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 10px; }
+.guide-heading strong, .guide-heading small { display: block; }
+.guide-heading strong { color: var(--accent); font-size: 14px; }
+.guide-heading small { margin-top: 2px; color: #9297a2; font-size: 9px; }
+.guide-heading > span { color: #a1a6ae; font-size: 8px; }
+.platform-guide-list { padding-right: 2px; }
+.platform-guide-item { display: block; margin-bottom: 5px; padding: 7px 8px; color: inherit; text-decoration: none; border: 1px solid #e3e8ea; border-radius: 7px; background: #fafbfb; cursor: pointer; }
+.platform-guide-item:hover, .platform-guide-item:focus-visible { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+.platform-guide-title { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.platform-guide-title strong { color: #30343b; font-size: 11px; }
+.platform-guide-title em { padding: 1px 5px; color: #626975; font-size: 8px; font-style: normal; white-space: nowrap; border-radius: 4px; background: #ebecef; }
+.platform-guide-item p { margin: 3px 0; color: #686e78; font-size: 9px; line-height: 1.35; }
+.platform-guide-meta { display: flex; gap: 4px; align-items: center; overflow: hidden; color: #9297a2; font-size: 8px; white-space: nowrap; }
+.platform-guide-meta span { overflow: hidden; text-overflow: ellipsis; }
+.platform-guide-meta em { padding: 1px 4px; font-style: normal; border-radius: 4px; background: #ebecef; }
 * { scrollbar-width: thin; scrollbar-color: #d7dae0 transparent; }

@@ -1,3 +1,6 @@
+import os
+from datetime import UTC, datetime, timedelta
+
 import httpx
 import pytest
 
@@ -5,6 +8,7 @@ from app.infrastructure.http import ExternalApiError, HttpxExternalApiClient
 from app.providers import (
     ImageAnalyzeProvider,
     LanguageModelProvider,
+    LocalImageStorageProvider,
     TranslationProvider,
     TranslationProviderError,
     UnavailableTranslationProvider,
@@ -34,3 +38,16 @@ def test_future_provider_contracts_remain_available() -> None:
     assert ImageAnalyzeProvider is not None
     with pytest.raises(TranslationProviderError):
         UnavailableTranslationProvider().translate("咖啡店")
+
+
+def test_local_image_cleanup_removes_expired_orphans_after_restart(tmp_path) -> None:
+    orphan = tmp_path / "img_orphan.jpg"
+    orphan.write_bytes(b"old image")
+    now = datetime.now(UTC)
+    old_timestamp = (now - timedelta(hours=25)).timestamp()
+    os.utime(orphan, (old_timestamp, old_timestamp))
+
+    storage = LocalImageStorageProvider(str(tmp_path), expire_hours=24)
+
+    assert storage.cleanup_expired(now) == 1
+    assert not orphan.exists()

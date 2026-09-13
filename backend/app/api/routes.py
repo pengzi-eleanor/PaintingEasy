@@ -34,7 +34,9 @@ from app.services import AnalyticsService, KeywordOptimizeService
 router = APIRouter(prefix="/api")
 analytics = AnalyticsService(settings=get_settings())
 settings = get_settings()
-image_storage = LocalImageStorageProvider(settings.image_upload_dir)
+image_storage = LocalImageStorageProvider(
+    settings.image_upload_dir, expire_hours=settings.image_expire_hours
+)
 image_analyzer = MockImageAnalyzeProvider()
 search_optimizer = KeywordOptimizeService(
     retriever=build_keyword_retriever(settings),
@@ -53,7 +55,7 @@ async def track_event(payload: AnalyticsEventRequest) -> AnalyticsEventResponse:
 
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
-MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_IMAGE_BYTES = settings.image_upload_max_size_mb * 1024 * 1024
 
 
 def matches_declared_image_type(content: bytes, content_type: str) -> bool:
@@ -83,7 +85,11 @@ async def upload_image(file: Annotated[UploadFile, File()]) -> ImageUploadRespon
         raise HTTPException(422, detail={"code": "EMPTY_IMAGE", "message": "图片文件不能为空"})
     if len(content) > settings.image_upload_max_size_mb * 1024 * 1024:
         raise HTTPException(
-            413, detail={"code": "IMAGE_TOO_LARGE", "message": "图片大小不能超过 5MB"}
+            413,
+            detail={
+                "code": "IMAGE_TOO_LARGE",
+                "message": f"图片大小不能超过 {settings.image_upload_max_size_mb}MB",
+            },
         )
     try:
         with Image.open(BytesIO(content)) as parsed:

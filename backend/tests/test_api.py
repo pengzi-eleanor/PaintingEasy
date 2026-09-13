@@ -202,3 +202,13 @@ def test_image_analyze_rejects_content_type_mismatch() -> None:
         files={"image": ("fake.png", BytesIO(b"not-really-png"), "image/png")},
     )
     assert response.status_code == 422
+
+
+def test_image_upload_limit_is_ten_megabytes() -> None:
+    response = request(
+        "POST",
+        "/api/images/upload",
+        files={"file": ("large.png", BytesIO(b"x" * (10 * 1024 * 1024 + 1)), "image/png")},
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"]["message"] == "图片大小不能超过 10MB"

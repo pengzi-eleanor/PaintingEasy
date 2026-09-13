@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import type { SearchPlatformLink, SearchSuggestion } from "../types/search";
-const copyrightLabels: Record<string, string> = {
-  inspiration_only: "仅供灵感",
-  license_per_item: "逐项核对许可",
-  attribution_required: "需要署名",
-  broad_reuse_license: "宽松许可",
-  commercial_license: "商业许可",
-  unknown: "许可未知",
-};
+import { copyrightLabels } from "../config/imageSearchSites";
 const groupLabels: Record<string, string> = {
   core: "核心词",
   expanded: "联想词",

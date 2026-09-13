@@ -1,4 +1,7 @@
 node_modules/
+# 本地 Agent/Skill 工具配置，不上传
+extension/.agents/
+
 # 本地需求文档，不上传
 paintingEasy需求文档.docx
 
@@ -17,12 +20,16 @@ extension/coverage/
 backend/.venv/
 backend/.pytest_cache/
 backend/.ruff_cache/
+.ruff_cache/
+.tmp_*/
 backend/**/__pycache__/
 *.py[cod]
 .env
 .DS_Store
 backend/logs/*.jsonl
 backend/uploads/
+backend/backend/logs/
+backend/backend/uploads/
 backend/data/*.sqlite3
 backend/data/*.sqlite3-shm
 backend/data/*.sqlite3-wal

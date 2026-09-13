@@ -87,9 +87,11 @@ PLATFORMS_BY_ID = {item.id: item for item in PLATFORMS}
 def platforms_for_persona(persona: str | None) -> list[PlatformConfig]:
     enabled = [item for item in PLATFORMS if item.enabled]
     if not persona:
-        return enabled
-    ranked = [item for item in enabled if persona in item.persona_priorities]
-    return sorted(ranked, key=lambda item: (item.persona_priorities[persona], item.id))
+        return enabled[:7]
+    return sorted(
+        enabled,
+        key=lambda item: (item.persona_priorities.get(persona, 10_000), item.id),
+    )[:7]
 
 
 def build_platform_query(

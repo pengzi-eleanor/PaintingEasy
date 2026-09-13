@@ -1,8 +1,8 @@
 import json
 from abc import ABC, abstractmethod
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from threading import Lock
+from threading import Lock, RLock
 from typing import Protocol
 
 from pydantic import ValidationError
@@ -132,33 +132,56 @@ class ImageStorageProvider(ABC):
 
 
 class LocalImageStorageProvider(ImageStorageProvider):
-    def __init__(self, directory: str):
+    def __init__(self, directory: str, *, expire_hours: int = 24):
         self.directory = Path(directory)
         self.metadata = {}
+        self.expire_after = timedelta(hours=expire_hours)
+        self._lock = RLock()
 
     def save(self, content, metadata):
-        self.directory.mkdir(parents=True, exist_ok=True)
-        (self.directory / metadata.stored_filename).write_bytes(content)
-        self.metadata[metadata.image_id] = metadata
+        with self._lock:
+            self.directory.mkdir(parents=True, exist_ok=True)
+            (self.directory / metadata.stored_filename).write_bytes(content)
+            self.metadata[metadata.image_id] = metadata
         return metadata
 
     def get(self, image_id):
-        item = self.metadata.get(image_id)
+        with self._lock:
+            item = self.metadata.get(image_id)
         if item and item.status == "active" and item.expires_at > datetime.now(UTC):
             return item
         return None
 
     def delete(self, image_id):
-        item = self.metadata.pop(image_id, None)
-        if item:
-            (self.directory / item.stored_filename).unlink(missing_ok=True)
+        with self._lock:
+            item = self.metadata.pop(image_id, None)
+            if item:
+                (self.directory / item.stored_filename).unlink(missing_ok=True)
 
     def cleanup_expired(self, now=None):
         now = now or datetime.now(UTC)
-        keys = [key for key, value in self.metadata.items() if value.expires_at <= now]
-        for key in keys:
-            self.delete(key)
-        return len(keys)
+        with self._lock:
+            keys = [key for key, value in self.metadata.items() if value.expires_at <= now]
+            for key in keys:
+                self.delete(key)
+            removed = len(keys)
+            active_files = {item.stored_filename for item in self.metadata.values()}
+        if not self.directory.exists():
+            return removed
+        cutoff = now - self.expire_after
+        for path in self.directory.iterdir():
+            if (
+                not path.is_file()
+                or not path.name.startswith("img_")
+                or path.suffix.casefold() not in {".jpg", ".png", ".webp"}
+                or path.name in active_files
+            ):
+                continue
+            modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+            if modified_at <= cutoff:
+                path.unlink(missing_ok=True)
+                removed += 1
+        return removed
 
 
 class ImageAnalyzeProvider(ABC):
